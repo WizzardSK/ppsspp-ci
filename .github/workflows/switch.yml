@@ -1,0 +1,60 @@
+name: Switch build
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch of WizzardSK/ppsspp-libretro to build
+        default: switch-build
+
+env:
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  build_switch:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: WizzardSK/ppsspp-libretro
+        ref: ${{ github.event.inputs.ref || 'switch-build' }}
+        submodules: recursive
+
+    - name: Fix git detected dubious ownership in repository
+      run: |
+        chown -R $(id -u):$(id -g) $PWD
+
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        key: switch
+
+    - name: Build
+      run: |
+        cmake -B build-switch -G Ninja \
+          -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/cmake/Switch.cmake \
+          -DCMAKE_BUILD_TYPE=$BUILD_CONFIGURATION \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          -DUSE_LIBNX=ON \
+          -DUSING_GLES2=ON \
+          -DUSING_EGL=OFF \
+          -DUSE_FFMPEG=OFF \
+          -DUSE_DISCORD=OFF \
+          -DUSE_MINIUPNPC=OFF \
+          -DUSE_ARMIPS=OFF \
+          -DUSE_SYSTEM_LIBPNG=OFF \
+          -DCMAKE_COLOR_DIAGNOSTICS=ON
+        cmake --build build-switch
+
+    - name: Package build
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ppsspp-switch
+        path: |
+          build-switch/PPSSPP.elf
+          build-switch/PPSSPP.nro
