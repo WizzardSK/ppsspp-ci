@@ -43,3 +43,54 @@ jobs:
       with:
         name: ppsspp-switch-core
         path: libretro/ppsspp_libretro_libnx.a
+
+  # Builds what a tester can actually put on a console. The core alone is a
+  # static library: on the Switch it gets linked into RetroArch, which is what
+  # produces the .nro. Both halves are built in libretro's own libnx container
+  # so the core and RetroArch see one libnx and one set of portlibs - that
+  # image also carries the ppsspp-ffmpeg build RetroArch links against.
+  build_retroarch:
+    name: RetroArch .nro with the core linked in
+    runs-on: ubuntu-latest
+    container:
+      image: reallibretroretroarch/libretro-build-libnx-devkitpro:v4-10-0
+      options: --user root
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+    steps:
+    - name: Check out the core
+      uses: actions/checkout@v3
+      with:
+        repository: WizzardSK/ppsspp-libretro
+        ref: ${{ github.event.inputs.ref || 'nx-core' }}
+        submodules: recursive
+        path: ppsspp
+
+    - name: Check out RetroArch
+      uses: actions/checkout@v3
+      with:
+        repository: libretro/RetroArch
+        path: RetroArch
+
+    - name: Fix git detected dubious ownership in repository
+      run: |
+        chown -R $(id -u):$(id -g) $PWD
+
+    - name: Build the core
+      run: |
+        cd ppsspp/libretro
+        make platform=libnx -j$(nproc)
+
+    - name: Link RetroArch against the core
+      run: |
+        cp ppsspp/libretro/ppsspp_libretro_libnx.a RetroArch/libretro_libnx.a
+        cd RetroArch
+        make -f Makefile.libnx -j$(nproc)
+
+    - name: Package build
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ppsspp-switch-retroarch
+        path: RetroArch/retroarch_switch.nro
