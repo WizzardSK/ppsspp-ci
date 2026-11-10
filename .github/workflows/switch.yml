@@ -27,6 +27,11 @@ jobs:
       run: |
         chown -R $(id -u):$(id -g) $PWD
 
+    - name: aemu_postoffice enet client in IPv4-only mode (test)
+      run: |
+        sed -i 's/^		#ifdef __PSP__$/		#ifdef ENET_IPV4_ONLY/' ext/aemu_postoffice/client/enet.c
+        grep -n 'ifdef ENET_IPV4_ONLY' ext/aemu_postoffice/client/enet.c
+
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
