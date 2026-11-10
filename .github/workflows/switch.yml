@@ -84,6 +84,7 @@ jobs:
 
     - name: Build the core
       run: |
+        sed -i 's/^		#ifdef __PSP__$/		#ifdef ENET_IPV4_ONLY/' ppsspp/ext/aemu_postoffice/client/enet.c
         cd ppsspp/libretro
         make platform=libnx -j$(nproc)
 
