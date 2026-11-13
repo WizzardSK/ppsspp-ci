@@ -7,6 +7,10 @@ on:
       ref:
         description: Branch of WizzardSK/ppsspp-libretro to build
         default: nx-core
+      enet_dualstack:
+        description: enet dual-stack on the Switch (WizzardSK/aemu_postoffice enet-libnx-in6, no ENET_IPV4_ONLY)
+        type: boolean
+        default: false
 
 env:
   BUILD_CONFIGURATION: Release
@@ -31,6 +35,13 @@ jobs:
       run: |
         sed -i 's/^		#ifdef __PSP__$/		#ifdef ENET_IPV4_ONLY/' ext/aemu_postoffice/client/enet.c
         grep -n 'ifdef ENET_IPV4_ONLY' ext/aemu_postoffice/client/enet.c
+
+    - name: enet dual-stack (test)
+      if: ${{ github.event.inputs.enet_dualstack == 'true' }}
+      run: |
+        curl -sfL -o ext/aemu_postoffice/ext/enet/enet.h https://raw.githubusercontent.com/WizzardSK/aemu_postoffice/enet-libnx-in6/ext/enet/enet.h
+        sed -i '/-DENET_IPV4_ONLY/d' libretro/Makefile
+        grep -n '__SWITCH__' ext/aemu_postoffice/ext/enet/enet.h; ! grep -n 'ENET_IPV4_ONLY' libretro/Makefile
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2
@@ -85,6 +96,10 @@ jobs:
     - name: Build the core
       run: |
         sed -i 's/^		#ifdef __PSP__$/		#ifdef ENET_IPV4_ONLY/' ppsspp/ext/aemu_postoffice/client/enet.c
+        if [ "${{ github.event.inputs.enet_dualstack }}" = "true" ]; then
+          curl -sfL -o ppsspp/ext/aemu_postoffice/ext/enet/enet.h https://raw.githubusercontent.com/WizzardSK/aemu_postoffice/enet-libnx-in6/ext/enet/enet.h
+          sed -i '/-DENET_IPV4_ONLY/d' ppsspp/libretro/Makefile
+        fi
         cd ppsspp/libretro
         make platform=libnx -j$(nproc)
 
